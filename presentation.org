@@ -1,0 +1,140 @@
+#+TITLE: DRF
+#+EMAIL: @pvavilin
+#+AUTHOR: @pvavilin
+#+INFOJS_OPT: view:nil toc:nil ltoc:t mouse:underline buttons:0 path:https://orgmode.org/org-info.js
+#+startup: beamer
+#+LaTeX_CLASS: beamer
+#+LaTeX_CLASS_OPTIONS: [smallest]
+#+LATEX_HEADER: \usetheme{default}
+#+LATEX_HEADER: \usecolortheme{crane}
+#+LATEX_HEADER: \RequirePackage{fancyvrb}
+#+LATEX_HEADER: \DefineVerbatimEnvironment{verbatim}{Verbatim}{fontsize=\scriptsize}
+#+LaTeX_HEADER: \lstset{basicstyle=\scriptsize\ttfamily}
+#+LATEX_HEADER: \usebackgroundtemplate{\includegraphics[width=.99\paperwidth,height=.99\paperheight]{bg.jpeg}}
+#+OPTIONS: \n:t ^:nil
+* MVC
+  #+ATTR_LATEX: :width .8\textwidth
+  [[file:mvc.png]]
+* Зачем нужен DRF
+  - CRUD
+  [[file:crud.png]]
+* Зачем нужен DRF
+  - Права доступа
+  #+ATTR_LATEX: :width .7\textwidth
+  [[file:auth.png]]
+* JWT
+  [[file:jwt.png]]
+* Зачем нужен DRF
+  - Сериализация
+  #+begin_src python :exports code
+    import json
+    from django.db import Model
+
+
+    class MyModel(Model):
+        ...
+        def to_json(self):
+            ...
+  #+end_src
+  Зачем тогда нужны сериализаторы?
+* Serializers
+  - JSON
+  - XML
+  - YAML
+  - многие другие
+* Serializers. Валидация
+  #+begin_src python :exports code
+    def validate_<field>(self, field):
+      if ...:
+        raise serializers.ValidationError
+      return field
+
+    def validate(self, items):
+      return items
+  #+end_src
+* Serializers. Default
+  #+begin_src python :exports code
+    def perform_create(self, serializer):
+        serializer.save(
+            owner=self.request.user
+        )
+  #+end_src
+  Это плохой стиль! Необходимо использовать:
+  - [[https://www.django-rest-framework.org/api-guide/validators/#currentuserdefault][CurrentUserDefault]]
+  - [[https://www.django-rest-framework.org/api-guide/validators/#createonlydefault][CreateOnlyDefault]]
+* ViewSet
+  #+begin_src python :exports code
+    class ModelViewSet(
+            mixins.CreateModelMixin,
+            mixins.RetrieveModelMixin,
+            mixins.UpdateModelMixin,
+            mixins.DestroyModelMixin,
+            mixins.ListModelMixin,
+            GenericViewSet
+    ):
+  #+end_src
+* ViewSet. Ограничение на методы
+  1. Можно наследоваться не от /ModelViewSet/, а создать свой набор миксинов
+  #+begin_src python :exports code
+    class SnippetsViewSet(
+            mixins.CreateModelMixin,
+            mixins.RetrieveModelMixin,
+            mixins.ListModelMixin
+    ):
+  #+end_src
+  2. Можно использовать /http_method_names/
+  #+begin_src python :exports code
+    class SnippetsViewSet(ModelViewSet):
+        ...
+        http_method_names = ["get", "post"]
+  #+end_src
+* ViewSet. create / performe_create
+  #+begin_src python :exports code
+    class CreateModelMixin:
+      """
+      Create a model instance.
+      """
+      def create(self, request, *a, **k):
+         serializer = self.get_serializer(
+           data=request.data)
+         serializer.is_valid(
+           raise_exception=True)
+         self.perform_create(serializer)
+         # ...
+
+      def perform_create(self, serializer):
+        serializer.save()
+  #+end_src
+* ViewSet. get_serializer_class
+  [[file:get_serializer.png]]
+* Permissions
+  [[file:permissions.png]]
+* Permissions
+  [[file:local_permissions.png]]
+* Permissions
+  [[file:custom_permissions.png]]
+  - [[https://www.django-rest-framework.org/tutorial/4-authentication-and-permissions/#adding-required-permissions-to-views][has_permission]]
+  - [[https://www.django-rest-framework.org/tutorial/4-authentication-and-permissions/#object-level-permissions][has_object_permission]]
+* Паджинация
+  [[file:pagination.png]]
+* Throttling
+  [[file:throttling.png]]
+* Фильтрация
+  - [[https://django-filter.readthedocs.io/en/stable/guide/usage.html][Django-Filter]] иногда бывает слишком громоздким решением для простой задачи
+  #+begin_src python :exports code
+    def get_queryset(self):
+      langs = (
+        self.request.query_params
+        .getlist('langs')
+      )
+      qs = Recipe.objects
+      if tags:
+        qs = qs.filter(language__in=langs)
+      # if self.request.query_params.get(
+      #     'is_favorited'):
+      #   qs = qs.filter(is_favorited=True)
+      return qs
+  #+end_src
+* Дополнительная литература
+  - [[https://habr.com/ru/articles/340146/][JWT токен]]
+  - [[https://www.django-rest-framework.org/tutorial/1-serialization/][DRF Tutorial]]
